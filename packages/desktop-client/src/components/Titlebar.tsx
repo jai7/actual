@@ -214,6 +214,8 @@ function ServerSyncButton({ style, isMobile = false }: ServerSyncButtonProps) {
     <Button
       variant="bare"
       aria-label={t('Server Sync')}
+      data-testid="sync-button"
+      data-sync-state={syncState ?? (syncing ? 'syncing' : 'ok')}
       className={css({
         ...(isMobile
           ? {
