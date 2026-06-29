@@ -188,6 +188,23 @@ test.describe('Transactions', () => {
     });
   });
 
+  test('TC-BT2: transaction persists after page reload (SQLite flush confirmed)', async () => {
+    await accountPage.createSingleTransaction({
+      payee: 'Netflix',
+      debit: '15.00',
+    });
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    // Re-acquire the account page after reload
+    navigation = new Navigation(page);
+    accountPage = await navigation.goToAccountPage('Ally Savings');
+
+    await expect(accountPage.getNthTransaction(0).payee).toHaveText('Netflix');
+    await expect(accountPage.getNthTransaction(0).debit).toHaveText('15.00');
+  });
+
   test('creates a test transaction', async () => {
     await accountPage.createSingleTransaction({
       payee: 'Home Depot',

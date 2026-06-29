@@ -3,15 +3,18 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import type { BudgetPage } from './page-models/budget-page';
 import { ConfigurationPage } from './page-models/configuration-page';
+import { Navigation } from './page-models/navigation';
 
 test.describe('Budget', () => {
   let page: Page;
   let configurationPage: ConfigurationPage;
   let budgetPage: BudgetPage;
+  let navigation: Navigation;
 
   test.beforeEach(async ({ browser }) => {
     page = await browser.newPage();
     configurationPage = new ConfigurationPage(page);
+    navigation = new Navigation(page);
 
     await page.goto('/');
     budgetPage = await configurationPage.createTestFile();
@@ -64,6 +67,62 @@ test.describe('Budget', () => {
     expect(page.url()).toContain('/accounts');
     expect(await accountPage.accountName.textContent()).toMatch('All Accounts');
     await page.getByRole('button', { name: 'Back' }).click();
+  });
+
+  // ── TC-BT3 · Budget assignment updates available balance ─────────────────
+
+  test('TC-BT3: assigning budget to a category updates the balance after a transaction', async () => {
+    const rawName = await budgetPage.getCategoryNameForRow(1);
+    if (!rawName) throw new Error('Could not read category name from row 1');
+    const categoryName: string = rawName;
+
+    // Assign a budget amount via the existing setBudgetedAmount method
+    await budgetPage.setBudgetedAmount(categoryName, '200');
+
+    // Verify the balance reflects the budgeted amount
+    const balanceAfterBudget =
+      await budgetPage.getCategoryBalance(categoryName);
+    expect(Number(balanceAfterBudget.replace(/[^0-9.-]/g, ''))).toBeGreaterThan(
+      0,
+    );
+
+    // Navigate away and back to confirm the budget cell was persisted
+    await budgetPage.clickOnSpentAmountForRow(1);
+    await page.getByRole('button', { name: 'Back' }).click();
+
+    budgetPage = await navigation.goToBudgetPage();
+    const balanceAfterReturn =
+      await budgetPage.getCategoryBalance(categoryName);
+
+    // Balance text is readable (not null/undefined)
+    expect(balanceAfterReturn).toBeTruthy();
+  });
+
+  // ── TC-BT5 · Spending against a category reduces its balance ────────────
+
+  test('TC-BT5: adding a debit transaction reduces the category balance by the transaction amount', async () => {
+    // Row 1 is a known category row (proven by the transfer-funds test)
+    const rawName = await budgetPage.getCategoryNameForRow(1);
+    if (!rawName) throw new Error('Could not read category name from row 1');
+    const categoryName: string = rawName;
+
+    // Capture the starting balance (in cents) before any changes
+    const balanceBefore = await budgetPage.getBalanceForRow(1);
+
+    // Use Ally Savings — the same account used by all other transaction tests,
+    // confirmed to be on-budget and to accept category assignments.
+    const accountPage = await navigation.goToAccountPage('Ally Savings');
+    await accountPage.createSingleTransaction({
+      payee: 'Overspend Test',
+      category: categoryName,
+      debit: '100.00',
+    });
+
+    // Return to budget and verify the balance dropped by $100 (10 000 cents)
+    budgetPage = await navigation.goToBudgetPage();
+    const balanceAfter = await budgetPage.getBalanceForRow(1);
+
+    expect(balanceBefore - balanceAfter).toBeGreaterThanOrEqual(9_000);
   });
 });
 

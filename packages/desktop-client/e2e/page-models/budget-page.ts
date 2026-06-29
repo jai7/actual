@@ -213,6 +213,22 @@ export class BudgetPage {
     }
     return new AccountPage(this.page);
   }
+  
+  async getCategoryBalance(categoryName: string) {
+    const row = this.budgetTable
+      .getByTestId('row')
+      .filter({ hasText: categoryName })
+      .first();
+    const balanceText = await row.getByTestId('balance').textContent();
+
+    if (balanceText === null) {
+      throw new Error(
+        `Failed to get balance for category "${categoryName}".`,
+      );
+    }
+
+    return balanceText.trim();
+  }
 
   async transferAllBalance(fromIdx: number, toIdx: number) {
     const toName = await this.getCategoryNameForRow(toIdx);
