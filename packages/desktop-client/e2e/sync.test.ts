@@ -82,7 +82,13 @@ async function openSyncedBudgetInContext(
 }
 
 test.describe('Sync — CRDT consistency', () => {
-  test.skip(!hasSyncServer, 'SYNC_SERVER_URL not set — skipping sync tests');
+  test.beforeEach(() => {
+    if (!hasSyncServer) {
+      throw new Error(
+        'SYNC_SERVER_URL is not set — sync tests require a running sync server.',
+      );
+    }
+  });
 
   // ── TC-S1 · Transaction propagates from Context A → Context B ────────────
 
@@ -121,11 +127,11 @@ test.describe('Sync — CRDT consistency', () => {
 
       // Device A: sync up
       await syncA.triggerSync();
-      await syncA.waitForSuccess();
+      expect(await syncA.getSyncState()).toBe('ok');
 
       // Device B: sync down
       await syncB.triggerSync();
-      await syncB.waitForSuccess();
+      expect(await syncB.getSyncState()).toBe('ok');
 
       // Device B: verify transaction is visible
       const accountPageB = await navB.goToAccountPage('Sync-Test-TC-S1');
@@ -168,7 +174,7 @@ test.describe('Sync — CRDT consistency', () => {
         debit: '10.00',
       });
       await syncA.triggerSync();
-      await syncA.waitForSuccess();
+      expect(await syncA.getSyncState()).toBe('ok');
 
       // Block sync on Device B
       await pageB.route('**/sync', route => route.abort());
@@ -179,12 +185,12 @@ test.describe('Sync — CRDT consistency', () => {
         debit: '20.00',
       });
       await syncA.triggerSync();
-      await syncA.waitForSuccess();
+      expect(await syncA.getSyncState()).toBe('ok');
 
       // Unblock Device B and sync
       await pageB.unroute('**/sync');
       await syncB.triggerSync();
-      await syncB.waitForSuccess();
+      expect(await syncB.getSyncState()).toBe('ok');
 
       // Device B: verify both transactions arrived
       const navB = new Navigation(pageB);
@@ -248,11 +254,11 @@ test.describe('Sync — CRDT consistency', () => {
       // Unblock and retry — should succeed
       await pageA.unroute('**/sync');
       await syncA.triggerSync();
-      await syncA.waitForSuccess();
+      expect(await syncA.getSyncState()).toBe('ok');
 
       // Device B receives everything
       await syncB.triggerSync();
-      await syncB.waitForSuccess();
+      expect(await syncB.getSyncState()).toBe('ok');
 
       const accountPageB = await navB.goToAccountPage('Ally Savings');
       const rows = await accountPageB.transactionTableRow.count();
@@ -294,9 +300,9 @@ test.describe('Sync — CRDT consistency', () => {
 
       // Ensure both contexts see the same initial state
       await syncA.triggerSync();
-      await syncA.waitForSuccess();
+      expect(await syncA.getSyncState()).toBe('ok');
       await syncB.triggerSync();
-      await syncB.waitForSuccess();
+      expect(await syncB.getSyncState()).toBe('ok');
 
       // Both contexts navigate to the same account
       const accountPageA = await navA.goToAccountPage('Ally Savings');
@@ -323,15 +329,15 @@ test.describe('Sync — CRDT consistency', () => {
 
       // Both sync
       await syncA.triggerSync();
-      await syncA.waitForSuccess();
+      expect(await syncA.getSyncState()).toBe('ok');
       await syncB.triggerSync();
-      await syncB.waitForSuccess();
+      expect(await syncB.getSyncState()).toBe('ok');
 
       // Sync again so both receive each other's changes
       await syncA.triggerSync();
-      await syncA.waitForSuccess();
+      expect(await syncA.getSyncState()).toBe('ok');
       await syncB.triggerSync();
-      await syncB.waitForSuccess();
+      expect(await syncB.getSyncState()).toBe('ok');
 
       // Both should converge on the same notes value
       const notesA = await accountPageA

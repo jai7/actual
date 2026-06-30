@@ -195,7 +195,6 @@ test.describe('Transactions', () => {
     });
 
     await page.reload();
-    await page.waitForLoadState('networkidle');
 
     // Re-acquire the account page after reload
     navigation = new Navigation(page);

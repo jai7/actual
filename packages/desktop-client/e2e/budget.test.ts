@@ -76,26 +76,21 @@ test.describe('Budget', () => {
     if (!rawName) throw new Error('Could not read category name from row 1');
     const categoryName: string = rawName;
 
-    // Assign a budget amount via the existing setBudgetedAmount method
+    // Zero out existing budget to get a known baseline, then set $200.
+    // This avoids dependence on whatever demo data pre-seeded for this category.
+    await budgetPage.setBudgetedAmount(categoryName, '0');
+    const balanceAtZero = await budgetPage.getBalanceForRow(1);
     await budgetPage.setBudgetedAmount(categoryName, '200');
+    const balanceAfter = await budgetPage.getBalanceForRow(1);
+    expect(balanceAfter - balanceAtZero).toBe(20_000); // $200 = 20 000 cents
 
-    // Verify the balance reflects the budgeted amount
-    const balanceAfterBudget =
-      await budgetPage.getCategoryBalance(categoryName);
-    expect(Number(balanceAfterBudget.replace(/[^0-9.-]/g, ''))).toBeGreaterThan(
-      0,
-    );
-
-    // Navigate away and back to confirm the budget cell was persisted
+    // Navigate away and back — balance must be unchanged (persistence confirmed)
     await budgetPage.clickOnSpentAmountForRow(1);
     await page.getByRole('button', { name: 'Back' }).click();
 
     budgetPage = await navigation.goToBudgetPage();
-    const balanceAfterReturn =
-      await budgetPage.getCategoryBalance(categoryName);
-
-    // Balance text is readable (not null/undefined)
-    expect(balanceAfterReturn).toBeTruthy();
+    const balanceAfterReturn = await budgetPage.getBalanceForRow(1);
+    expect(balanceAfterReturn).toBe(balanceAfter);
   });
 
   // ── TC-BT5 · Spending against a category reduces its balance ────────────
@@ -122,7 +117,7 @@ test.describe('Budget', () => {
     budgetPage = await navigation.goToBudgetPage();
     const balanceAfter = await budgetPage.getBalanceForRow(1);
 
-    expect(balanceBefore - balanceAfter).toBeGreaterThanOrEqual(9_000);
+    expect(balanceBefore - balanceAfter).toBe(10_000); // $100 debit = 10 000 cents
   });
 });
 
